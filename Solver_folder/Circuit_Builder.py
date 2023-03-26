@@ -1,108 +1,18 @@
-
-from qiskit import IBMQ
 import qiskit_aer
-import smtplib
-import sys
-from scipy.optimize import curve_fit
-import numpy
-import time
-
 import matplotlib.pyplot as plt
-import matplotlib.axes as axes
-import numpy as np
-import networkx as nx
-
-
-from matplotlib.pyplot import cm
-import matplotlib.pyplot as plt
-import matplotlib.axes as axes
-import numpy as np
-import networkx as nx
-
-#from mitiq import zne
-#import mitiq
-#from mitiq.zne import mitigate_executor
-import matplotlib.pyplot as plt
-from qiskit.opflow import DictStateFn
 from qiskit.compiler import transpile
-import copy
-
-import scipy
-
-import logging
-from time import time
-from typing import Callable, Dict, List, Optional, Tuple, Union
-
-import qiskit
 import numpy as np
-from functools import partial
-from qiskit.circuit import Parameter, QuantumCircuit
-from qiskit.circuit.library import RealAmplitudes
-from qiskit.opflow import (
-    CircuitSampler,
-    CircuitStateFn,
-    ExpectationBase,
-    ExpectationFactory,
-    ListOp,
-    OperatorBase,
-    PauliSumOp,
-    StateFn,
-    OperatorStateFn
-)
-from qiskit.opflow.gradients import GradientBase
-from qiskit.providers import Backend
-from qiskit.utils import QuantumInstance, algorithm_globals
-from qiskit.utils.backend_utils import is_aer_provider
-from qiskit.utils.validation import validate_min
-
-from qiskit.algorithms.aux_ops_evaluator import eval_observables 
-from qiskit.algorithms.exceptions import AlgorithmError
-from qiskit.algorithms.list_or_dict import ListOrDict
-from qiskit.algorithms.optimizers import SLSQP, Minimizer, Optimizer
-from qiskit.algorithms.variational_algorithm import VariationalAlgorithm, VariationalResult
-from qiskit.algorithms.minimum_eigen_solvers.minimum_eigen_solver import MinimumEigensolver, MinimumEigensolverResult
-
-#from mitiq.zne.scaling.folding import fold_gates_from_right
-
-
-from qiskit import QuantumCircuit, execute, Aer
-from qiskit.visualization import plot_histogram
-import qiskit.providers.aer.noise as noise
-from qiskit import IBMQ, Aer
 from qiskit.providers.aer.noise import NoiseModel
-from qiskit.providers.aer import AerSimulator
-from ibm_quantum_widgets import CircuitComposer
-import qiskit
-from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit
-from qiskit.circuit import QuantumCircuit, Parameter
-from numpy import pi 
-
-from qiskit import Aer
-from qiskit.tools.visualization import plot_histogram
-from qiskit.circuit.library import TwoLocal
-from qiskit_optimization.applications import Maxcut, Tsp
-from qiskit.algorithms import VQE, NumPyMinimumEigensolver, QAOA
-from qiskit.algorithms.optimizers import SPSA
-from qiskit.utils import algorithm_globals, QuantumInstance
-from qiskit_optimization.algorithms import MinimumEigenOptimizer
-from qiskit_optimization.problems import QuadraticProgram
 from qiskit.transpiler import CouplingMap 
 from collections import OrderedDict
 from qiskit.circuit import ParameterVector, QuantumCircuit, ParameterExpression
-
-
-
-from qiskit_aer.backends import QasmSimulator
-
-
-import time
-plt.style.use('default')
 from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit
 from qiskit.dagcircuit import DAGCircuit
 from qiskit.converters import circuit_to_dag
 from qiskit.tools.visualization import dag_drawer
 from qiskit.circuit.library import CHGate, U2Gate, CXGate, RZZGate
 from qiskit.converters import dag_to_circuit
+plt.style.use('default')
 
 
 

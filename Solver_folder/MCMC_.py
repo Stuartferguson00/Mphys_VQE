@@ -1,24 +1,8 @@
 import copy
-from sklearn.linear_model import LinearRegression
-from typing import Any, Callable, Optional, Sequence, Union, List
-from functools import wraps
 import numpy as np
-from scipy.optimize import curve_fit
-
-#import statsmodels.regression.linear_model as sm
-from mitiq import Executor, Observable, QPROGRAM, QuantumResult
-from mitiq.cdr import (
-    generate_training_circuits,
-    #linear_fit_function,
-    linear_fit_function_no_intercept,
-)
-from mitiq.cdr.clifford_utils import is_clifford
-from mitiq.zne.scaling import fold_gates_at_random
-from matplotlib import pyplot as plt
-from mitiq.zne.inference import Factory, RichardsonFactory,LinearFactory
-
-from qiskit.circuit import Parameter, QuantumCircuit
 from qiskit.circuit import ParameterVector, QuantumCircuit
+import matplotlib.pyplot as plt
+plt.style.use('default')
 
 
 

@@ -1,15 +1,24 @@
-from mitiq.zne.scaling import fold_gates_at_random
 from .Circuit_Builder import *
 from .Miti_Techniques import execute_with_cdr_alt, mock_execute_with_zne
 from qiskit.algorithms import VQE, NumPyMinimumEigensolver
-
 from qiskit.transpiler import CouplingMap
-
 from qiskit_optimization.applications import Maxcut
 import time
+from functools import partial
+from qiskit.algorithms.optimizers import SPSA
+import qiskit
+plt.style.use('default')
+
 
 
 class Variational_Algorithm:
+
+    """
+
+    Class that runs a max cut VQE
+
+
+    """
 
     def __init__(self, ansatz, quantum_instance, simulation_instance, G,
                  noise_dict=None
@@ -17,20 +26,31 @@ class Variational_Algorithm:
         # others (scale_noise=fold_gates_at_random,fit_function = None, coupling_map = None)
 
         """
-        
-        Class that runs a max cut VQE
 
+        initialisation function
 
         Parameters
         ----------
+        ansatz : obj
+            Qiskit.QuantumCircuit object. Ansatz for the VQE
+
+        quantum_instance : obj
+            noisy Qiskit.QuantumInstance object
+
+        simulation_instance : obj
+            noiseless Qiskit.QuantumInstance object
+
+        G : obj
+            networkx.classes.graph.Graph object, ie. the max-cut problem
+
+        noise_dict : dict
+            dict outlining the complex noise model for the executor.
+            noise_dict = {"idle_zz" : float, "driven_zz" : float,
+                  "noise_model": Qiskit.NoiseModel object,
+                  "basis_gates": Qiskit.BasisGates object,
+                  "coupling_map": Qiskit.CouplingMap object}
 
 
-
-        Returns
-        -------
-        
-        
-        
         """
 
         # define class variables
@@ -74,6 +94,16 @@ class Variational_Algorithm:
 
 
     def find_expected_result(self):
+
+        """
+
+        Use a numpy classical eigensolver to find exact final result of the max-cut problem
+
+        Returns
+        -------
+
+        """
+
         # classically find the expected result
         w = np.zeros([self.n, self.n])
         for i in range(self.n):
@@ -97,22 +127,66 @@ class Variational_Algorithm:
         return real_res
 
     def callback(self, nfev, params, val, stepsize=None, step_accept=None):
+        #callback function for the SPSA
         self.params.append(params)
         self.vals.append(val)
         # print (val)
 
     def define_sim_ex(self):
+        #define the simulator and executor (functions that find the noisless or noisy expectation value of a given circuit)
         self.simulator = partial(self.compute_expectation, sim=True)
         self.executor = partial(self.compute_expectation, sim=False)
 
     def run(self, maxiters=10, num_shots=1000, ZNE_during_mini=None, ZNE=None, CDR=None, vnCDR=None):
-
         """
         Function to run a VQE given a circuit and a problem
         Elect which mitigation methods to use and when
         if any mitigation method does not equal None, it must be a dictionary and the mitigation method will run
         with parameters defined by the given dict
+
+        Parameters
+        ----------
+        maxiters : int
+            maximum number of minimisation steps
+
+        num_shots : int
+            maximum number of shots per circuit evaluation
+
+        ZNE_during_mini : None or dict
+            dictionary detailing ZNE mitigation for use throughout the minimisation. It is standard throughout the code
+            None for no ZNE
+
+
+        ZNE : None or dict
+            dictionary detailing ZNE mitigation. It is standard throughout the code
+            None for no ZNE
+
+        CDR : dict
+            dictionary detailing CDR mitigation. It is standard throughout the code
+            None for no CDR
+
+        vnCDR : dict
+            dictionary detailing vnCDR mitigation. It is standard throughout the code
+            None for no vnCDR
+
+        Returns
+        -------
+
+        all_results : array
+            array of all results
+
+        all_errs : array
+            array of errors of result
+
+        all_names : list
+            list of names of mitigation (or lack therof) of each method
+
+
+
         """
+
+
+
         self.num_shots = num_shots
         # check wif the minimisation should be mitigated by ZNE
         if ZNE_during_mini != None:
@@ -210,7 +284,6 @@ class Variational_Algorithm:
                                     self.base_circuit,
                                     self.executor,
                                     simulator=self.simulator,
-                                    seed=0,
                                     num_training_circuits=num_training_circuits,
                                     fraction_non_clifford=fraction_non_clifford,
                                     params=self.opt_params,  # if we want MCMC
@@ -232,7 +305,6 @@ class Variational_Algorithm:
                                 self.base_circuit,
                                 self.executor,
                                 simulator=self.simulator,
-                                seed=0,
                                 scale_factors=scale_factors,
                                 num_training_circuits=num_training_circuits,
                                 scale_noise=scale_noise,
@@ -265,18 +337,22 @@ class Variational_Algorithm:
     def compute_expectation(self, circ_params, sim=False):
 
         """
-        Computes expectation value based on measurement results
 
-        Args:
-            counts: dict
-                    key as bitstring, val as count
+        Parameters
+        ----------
+        circ_params : array
+            variational parameters
 
-            G: networkx graph
+        sim : bool
+            True for simulation, falase for noisy evaluation
 
-        Returns:
-            avg: float
-                 expectation value
+        Returns
+        -------
+
         """
+
+
+
 
         counts = self.get_counts(circ_params, sim=sim)
         if type(counts) == list:
@@ -312,6 +388,49 @@ class Variational_Algorithm:
 
 
     def mitigate_random_circuit(self, rand_params, num_shots=1000,  ZNE=None, CDR=None, vnCDR=None ,  _MCMC=False):
+
+        """
+
+        Performs mitigation of a circuit outwith any VQA
+
+        Parameters
+        ----------
+        rand_params : array
+            array of length size_graph * num_ansatz_layers, with required variational parameters
+
+        num_shots : int
+            Number of shots required per circuit evaluation
+
+        ZNE : None or dict
+            dictionary detailing ZNE mitigation. It is standard throughout the code
+            None for no ZNE
+
+        CDR : dict
+            dictionary detailing CDR mitigation. It is standard throughout the code
+            None for no CDR
+
+        vnCDR : dict
+            dictionary detailing vnCDR mitigation. It is standard throughout the code
+            None for no vnCDR
+
+        _MCMC : bool
+            whether or not to do MMarkov Chain Monte-Carlo for traiing circuit selection
+
+        Returns
+        -------
+
+        all_results : array
+            array of all results
+
+        all_errs : array
+            array of errors of result
+
+        all_names : list
+            list of names of mitigation (or lack therof) of each method
+
+
+        """
+
 
         self.num_shots = num_shots
         circuit = self.bind(rand_params)
@@ -352,7 +471,6 @@ class Variational_Algorithm:
                                     self.base_circuit,
                                     self.executor,
                                     simulator=self.simulator,
-                                    seed=0,
                                     num_training_circuits=num_training_circuits,
                                     fraction_non_clifford=fraction_non_clifford,
                                     params=rand_params,  # if we want MCMC
@@ -376,7 +494,6 @@ class Variational_Algorithm:
                                 self.base_circuit,
                                 self.executor,
                                 simulator=self.simulator,
-                                seed=0,
                                 scale_factors=scale_factors,
                                 num_training_circuits=num_training_circuits,
                                 scale_noise=scale_noise,
@@ -404,14 +521,13 @@ class Variational_Algorithm:
         plt.xlabel("Mitigation")
         plt.ylabel("Energy")
 
-        print(all_names)
-        print(all_results)
-        print(all_errs)
         plt.errorbar(all_names, all_results,
                      yerr=all_errs)
         plt.show()
 
         return all_results, all_errs, all_names
+
+
 
     def bind(self, circ_params):
         # bind params to actual circuit
@@ -421,40 +537,31 @@ class Variational_Algorithm:
 
         params = circ_params
 
-        # print("hii")
-        # print(params)
-
-        # print(circ_params)
-
         param_dict = {}
         for i in range(len(theta)):
             param_dict[theta[i]] = params[i]
-        # print(param_dict)
         circuit = circ.bind_parameters(param_dict)
 
         circuit.measure_all()
-        # print(circ_params)
 
         return circuit
 
     def remove_rzz(self, circuit):
+        #removes all rzz gates from a circuit
         dag = circuit_to_dag(circuit)
         dag.remove_all_ops_named("rzz")
         circuit_mod = dag_to_circuit(dag)
         return circuit_mod
 
     def get_counts(self, circ_params, sim=False):
-        # print("getting a count")
+
         # can also take a circ instead of circ params
-        # always remove any rzz gates, then potentially add back if add_noise is true
-        # this is important for mitiq sadly
-        # print("hi there")
+        # can also take a list of circs
+        # always remove any rzz gates, then potentially add back in according to noise dict
+        # this is required for mitiq sadly
+
         if type(circ_params) == type(self.base_circuit):
-            #print("its a circ")
-            #print(circ_params)
             circuit = circ_params
-
-
             circuit = self.remove_rzz(circuit)
             if sim == False:
                 circuit.remove_final_measurements()
@@ -535,21 +642,25 @@ class Variational_Algorithm:
         return counts
 
     def maxcut_obj(self, x, G):
+
         """
         Given a bitstring as a solution, this function returns
         the number of edges shared between the two partitions
         of the graph.
 
-        Args:
+        Parameters
+        ----------
             x: str
                solution bitstring
 
             G: networkx graph
 
-        Returns:
+        Returns
+        -------
             obj: float
                  Objective
         """
+
         obj = 0
         for i, j in G.edges():
             if x[i] != x[j]:
@@ -558,6 +669,9 @@ class Variational_Algorithm:
         return obj
 
     def find_rand_circ_diff(self, rand_params, num_shots, full_output=False, scale_factors=(1,)):
+
+        #finds difference between noisy and noisless executions, aswell as with ZNE
+
         self.num_shots = num_shots
         simulator = partial(self.compute_expectation, sim=True)
         executor = partial(self.compute_expectation, sim=False)#, noise=True)

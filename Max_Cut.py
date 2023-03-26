@@ -2,9 +2,13 @@ import pickle
 from Solver_folder.Variational_Algorithm_ import Variational_Algorithm as VA
 import matplotlib.pyplot as plt
 from mitiq.zne.scaling.folding import fold_gates_at_random
+import time
 from qiskit_aer.backends import QasmSimulator
-plt.style.use('classic')
 from Solver_folder.Circuit_Builder import *
+from qiskit.utils import QuantumInstance
+from functools import partial
+plt.style.use('default')
+
 
 def find_avg(noise_dict, num_evals = 10, max_iters= 100,
                     size_graph = 5,
@@ -164,17 +168,17 @@ def main():
     noise_dict = {"idle_zz": 0.01, "driven_zz": 0,
                   "noise_model": NM, "basis_gates": BG, "coupling_map": CM}
 
-    #ZNE_during_mini = {"scale_factors": scale_factors, "scale_noise": fold_gates_at_random }
-    ZNE_during_mini = None
+    ZNE_during_mini = {"scale_factors": scale_factors, "scale_noise": fold_gates_at_random }
+    #ZNE_during_mini = None
 
     # define required mitigation dicts
     #comment out each method depending on what you require
-    #ZNE = {"scale_factors": scale_factors, "scale_noise": fold_gates_at_random }
-    ZNE = None
-    #CDR = {"num_training_circuits" : num_training_circuits, "fraction_non_clifford" : fraction_non_clifford }
-    CDR = None
-    #vnCDR =  {"scale_factors": scale_factors, "scale_noise": fold_gates_at_random , "num_training_circuits" : num_training_circuits, "fraction_non_clifford" : fraction_non_clifford }
-    vnCDR = None
+    ZNE = {"scale_factors": scale_factors, "scale_noise": fold_gates_at_random }
+    #ZNE = None
+    CDR = {"num_training_circuits" : num_training_circuits, "fraction_non_clifford" : fraction_non_clifford }
+    #CDR = None
+    vnCDR =  {"scale_factors": scale_factors, "scale_noise": fold_gates_at_random , "num_training_circuits" : num_training_circuits, "fraction_non_clifford" : fraction_non_clifford }
+    #vnCDR = None
 
 
 

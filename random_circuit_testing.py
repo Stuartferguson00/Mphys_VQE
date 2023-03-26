@@ -3,8 +3,9 @@ from Solver_folder.Variational_Algorithm_ import Variational_Algorithm as VA
 import matplotlib.pyplot as plt
 from mitiq.zne.scaling.folding import fold_gates_at_random
 from qiskit_aer.backends import QasmSimulator
-plt.style.use('classic')
 from Solver_folder.Circuit_Builder import *
+from qiskit.utils import QuantumInstance
+plt.style.use('default')
 
 
 
@@ -31,12 +32,16 @@ def evaluate_graph(size_graph, num_ansatz_layers, noise_dict, G,  ZNE, CDR, vnCD
 
     ZNE : dict
         dictionary detailing ZNE mitigation. It is standard throughout the code
+        None for no ZNE
+
 
     CDR : dict
         dictionary detailing CDR mitigation. It is standard throughout the code
+        None for no CDR
 
     vnCDR : dict
         dictionary detailing vnCDR mitigation. It is standard throughout the code
+        None for no vnCDR
 
     rand_params : array
         array of length size_graph * num_ansatz_layers, with required variational parameters
@@ -51,7 +56,7 @@ def evaluate_graph(size_graph, num_ansatz_layers, noise_dict, G,  ZNE, CDR, vnCD
 
     circuit = hardware_efficient_build(size_graph, num_ansatz_layers)
     if type(rand_params) != type(np.array([1,1])):
-        rand_params = np.random.uniform(0, 2 * pi, len(circuit.parameters))
+        rand_params = np.random.uniform(0, 2 * np.pi, len(circuit.parameters))
     else:
         #check manual rand params is the correct length:
         if len(circuit.parameters) != len(rand_params):
@@ -121,17 +126,14 @@ def main():
     noise_dict = {"idle_zz" : 0.01, "driven_zz" : 0,
                   "noise_model": NM, "basis_gates": BG, "coupling_map": CM}
 
-    # ZNE_during_mini = {"scale_factors": scale_factors, "scale_noise": fold_gates_at_random }
-    ZNE_during_mini = None
-
     #define required mitigation dicts
     #comment out each method depending on what you require
-    #ZNE = {"scale_factors": scale_factors, "scale_noise": fold_gates_at_random}
-    ZNE = None
-    #CDR= {"num_training_circuits" : num_training_circuits, "fraction_non_clifford" : fraction_non_clifford }
-    CDE = None
-    #vnCDR =  {"scale_factors": scale_factors, "scale_noise": fold_gates_at_random , "num_training_circuits" : num_training_circuits, "fraction_non_clifford" : fraction_non_clifford }
-    vnCDR = None
+    ZNE = {"scale_factors": scale_factors, "scale_noise": fold_gates_at_random}
+    #ZNE = None
+    CDR= {"num_training_circuits" : num_training_circuits, "fraction_non_clifford" : fraction_non_clifford }
+    #CDR = None
+    vnCDR =  {"scale_factors": scale_factors, "scale_noise": fold_gates_at_random , "num_training_circuits" : num_training_circuits, "fraction_non_clifford" : fraction_non_clifford }
+    #vnCDR = None
 
 
 
@@ -163,7 +165,7 @@ def main():
     np.savetxt("circuit_results/rand_ZZ_errs_"+ str(size), all_errs, delimiter=',')
     np.savetxt("circuit_results/rand_ZZ_res_"+ str(size), all_results, delimiter=',')
 
-
+main()
 
 
 

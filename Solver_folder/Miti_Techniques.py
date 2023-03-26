@@ -26,7 +26,9 @@ from mitiq.zne.inference import Factory, RichardsonFactory,LinearFactory, ExpFac
 from .MCMC_ import MCMC
 from qiskit.converters import circuit_to_dag
 from qiskit.converters import dag_to_circuit
-
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+plt.style.use('default')
 
 
 
@@ -77,17 +79,68 @@ def execute_with_cdr_alt(circuit,
     scale_factors = (1,),
     num_training_circuits = 10,
     scale_noise = fold_gates_at_random, 
-    fraction_non_clifford = 0.1,
-    fit_function = linear_fit_function,
+    fraction_non_clifford = 0.25,
     _MCMC = False,
     rand_circ = None,
-    X_0 = None ):
+    X_0 = None,
+    plot_fit = False):
+
+
+
+    """
+
+    Function to perform Clifford Data Regression or variable noise Clifford Data Regression on a circuit evaluation
+
+
+    Parameters
+    ----------
+    circuit : obj or list
+        Qiskit.QuantumCircuit object to be evauated with CDR or vnCDR. Must be base circuit, with variational
+        parameters not filled in
+
+    executor : func
+        function to execute the circuit with qiskit and find the expectation value
+
+    executor : func
+        function to perfectly execute the circuit with qiskit and find the exact expectation value
+
+    params : list
+        variational parameters of the circuit
+
+    scale_factors : tuple
+        scale factors for use in ZNE. (1,) if no ZNE. Standard is (1,3,5)
+
+    num_training_circuits : int
+        number of training circuits to evaluate
+
+    scale_noise : func
+        scaling method, standard is mitiq's fold_gates_at_random
+
+    fraction_non_clifford : float
+        fraction of gates in the circuit which should be non-clifford
+
+    _MCMC : bool
+        whether or not to do MMarkov Chain Monte-Carlo for traiing circuit selection
+
+    rand_circ : bool
+        whether the circuit is random (True) or minimised (False) This affects the MCMC chosen
+
+    X_0 : float
+        centroid of gaussian for MCMC of random circuit
+
+    plot_fit : bool
+        optionally plot the fit
+
+
+    Returns
+    -------
+    """
     
     
 
-    
+    #takes any rzz of if there is any
+    #this is left in as a catch all, as mitiq cannot deal with rzz gates
     dag = circuit_to_dag(circuit)
-
     dag.remove_all_ops_named("rzz")
     circuit = dag_to_circuit(dag)
     
@@ -144,7 +197,7 @@ def execute_with_cdr_alt(circuit,
     ideal_results = results[1:]
 
 
-    # compute noisy expectation values
+    #compute noisy expectation values
     results, counts = executor(to_run)
     noisy_results = np.array(results).reshape(all_circuits_shape)
 
@@ -162,60 +215,107 @@ def execute_with_cdr_alt(circuit,
     mitigated_energy = ols_result.predict(inp[0, :].T)  # fit_function(noisy_results[0, :], fitted_params)
 
 
-    """
-    ideal_circ_result = simulator(circuit)
-    noisy_circ_result = executor(circuit)
-    x = np.array([np.arange(ideal_circ_result - 0.1,np.max(ZNE_results),0.1).T])
-    y = fit_function(x, fitted_params)
-    all_y_err = linear_fit_fnc_err(x, perr)
-    
-    
-    plt.fill_between(x[0], y[0]- all_y_err, y[0] + all_y_err, color='b', alpha=0.2)
-    
-    print("helloooooooo")
-    plt.plot(x[0],y[0], "r", label = "linear_fit")
-    plt.plot(ZNE_results, ideal_results,"bx", label = "original_results")
-    
-    plt.errorbar(ZNE_circ_result,fit_function(
-                    ZNE_circ_result,fitted_params),
-                    yerr = miti_err,
-                    marker="x", color = "k",
-                    label = "actual_circ_mitigated")
-    
-    
-    plt.plot(ZNE_circ_result, ideal_circ_result,
-                     "kx", label = "actual_circ_ideal")
-    plt.plot(ZNE_circ_result, ZNE_circ_result, 
-                     "gx", label = "actual_circ_non_mitigated")
-    plt.xlabel("noisy results")
-    plt.ylabel("ideal results")
-    #plt.legend()
-    plt.title("CDR Error mitigation ")
-    plt.show()
-    print(miti_err)
-    """
+    if plot_fit:
+        ideal_circ_result = simulator(circuit)
+        noisy_circ_result = executor(circuit)
+        x = np.array([np.arange(min(noisy_circ_result, np.min(noisy_results) ),np.max(noisy_results),0.001).T])
+        y = fit_function(x, fitted_params)
+        print(x)
+
+
+
+
+        all_y_err = linear_fit_fnc_err(x, perr_ols)
+
+        #plt.fill_between(x[0], y[0] - all_y_err[0], y[0] + all_y_err[0], color='b', alpha=0.2)
+
+
+        plt.plot(x[0],y[0], "k")#, label = "linear_fit")
+
+
+
+        print("hi")
+        print(ideal_results)
+
+
+        #print(noisy_results[1:, :][0], ideal_results)
+
+        plt.plot(noisy_results[1:, :].T[0], ideal_results,"bx", label = "Training data")
+        #plt.plot(noisy_results[1:, :].T[0], ideal_results,"bx", label = "original_results")
+
+
+
+
+
+        plt.errorbar(noisy_results[0, :],fit_function(
+                        noisy_results[0, :],fitted_params),
+                        yerr = miti_err,
+                        color = "k",
+                        label = "Mitigated result")
+
+
+        plt.plot(noisy_results[0, :], ideal_circ_result,
+                         color = "yellowgreen", label = "ideal result")
+        plt.plot(noisy_results[0, :], noisy_results[0, :],
+                         "rx", label = "non-mitigated result")
+        plt.xlabel("Noisy results", fontsize = 15)
+        plt.ylabel("Ideal results", fontsize = 15)
+        plt.legend()
+        plt.title("CDR training circuits | linear fit", fontsize = 17)
+        plt.show()
 
     return mitigated_energy, miti_err
 
 
-def mock_execute_with_zne(circuit,  scale_factors, executor, scale_noise = fold_gates_at_random, base_circuit = None,return_err = True):
-    
+def mock_execute_with_zne(circuit,  scale_factors, executor, scale_noise = fold_gates_at_random, base_circuit = None,return_err = True, plot_fit = False):
     
     """
 
+    Function to perform zero noise extrapolation on a circuit evaluation
 
     Parameters
     ----------
+    circuit : obj or list
+        Qiskit.QuantumCircuit object to be evauated with ZNE. Can be given in form of list of parameters,
+        in which case base_circuit must be supplied
+
+    scale_factors : tuple
+        scale factors for use in ZNE. (1,) if no ZNE. Standard is (1,3,5)
+
+
+    executor : func
+        function to execute the circuit with qiskit and find the expectation value
+
+
+    scale_noise : func
+        optionla scaling method, standard is mitiq's fold_gates_at_random
+
+    base_circuit : obj
+        Qiskit.QuantumCircuit object. Base circuit which list of parameters (given by circuit) will be applied to
+
+    return_err : bool
+        optionally return the error on the fit
+
+    plot_fit : bool
+        optionally plot the fit
+
+
 
     Returns
     -------
 
+    miti_res : float
+        result of mitigation, ie the proposed zero noise expectation value
+
+    err : float
+        optionally returns the error on miti_res
 
 
     """
+
+
     #print("in mock")
     if type(circuit) != qiskit.circuit.quantumcircuit.QuantumCircuit:
-        
         #bind params to actual circuit
         theta = base_circuit.parameters
         param_dict = {}
@@ -255,18 +355,14 @@ def mock_execute_with_zne(circuit,  scale_factors, executor, scale_noise = fold_
     miti_res= factory.reduce()
 
 
-
-    f = factory.plot_fit()
-    f.show()
-
-
-
+    if plot_fit:
+        f = factory.plot_fit()
+        f.show()
 
 
 
     if return_err:
         err = factory.get_zero_noise_limit_error()
-
         return miti_res, err
     else:
         return miti_res
