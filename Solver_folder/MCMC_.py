@@ -28,7 +28,7 @@ class MCMC:
     A class to conduct Markov Chain Monte Carlo .
 
 
-    Attributes
+    Parameters
     ----------
     N : int
         Number of non-clifford gates allowed in sample circuits
@@ -46,10 +46,9 @@ class MCMC:
     X_s : float
         value representing the deviation of sample likelihood required. (papers report this between 0.05 and 0.2)
 
-    Methods
+    Returns
     -------
-    info(additional=""):
-        Prints the person's name and age.
+
     """
     
     

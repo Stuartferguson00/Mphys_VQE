@@ -113,6 +113,26 @@ from qiskit.converters import dag_to_circuit
 
 
 def hardware_efficient_build(no_qubits, depth):
+
+    """
+    Function to build a hardware efficient ansatz
+
+    Parameters
+    ----------
+    no_qubits : int
+        number of qubits
+
+    depth :
+        number of layers of Ry gates
+
+    Returns
+    -------
+
+    circuit : obj
+        Qiskit.QuantumCircuit object of the hardware efficient ansatz
+    """
+
+
     theta = ParameterVector('θ', no_qubits*depth)
     qreg_q = QuantumRegister(no_qubits, 'q')
     circuit = QuantumCircuit(qreg_q)
@@ -120,23 +140,8 @@ def hardware_efficient_build(no_qubits, depth):
     
     count = 0
 
-    
-    """
-    for i in range(no_qubits*depth):
-        if count == no_qubits:
-            count = 0
-            circuit.cx(qreg_q[0], qreg_q[1])
-            circuit.cx(qreg_q[1], qreg_q[2])
-            circuit.cx(qreg_q[1], qreg_q[3])
-            circuit.cx(qreg_q[3], qreg_q[4])
-        
-        circuit.ry(theta[i], qreg_q[count])
-    
 
-        count+=1
-    """
-    
-    
+
     for i in range(no_qubits*depth):
         if count == no_qubits:
             count = 0
@@ -157,42 +162,27 @@ def hardware_efficient_build(no_qubits, depth):
 
 
 
-def qaoa_circ_build(G, p):
-    
-    theta = ParameterVector('θ', p*2)
-    
-    
-    nqubits = len(G.nodes())
-    # number of alternating unitaries
-    qc = QuantumCircuit(nqubits)
-
-    beta = theta[:p]
-    gamma = theta[p:]
-
-    # initial_state
-    for i in range(0, nqubits):
-        qc.h(i)
-
-    for irep in range(0, p):
-
-        # problem unitary
-        for pair in list(G.edges()):
-            qc.rzz(2 * gamma[irep], pair[0], pair[1])
-            
-
-        # mixer unitary
-        for i in range(0, nqubits):
-            qc.rx(2 * beta[irep], i)
-
-    return qc.decompose("rzz")
-
-
-
-
 
 
 
 def remove_idle_qwires(circ):
+
+    """
+    Helper function to remove idle wires from a quantum circuit
+
+    Parameters
+    ----------
+    circ : obj
+        Qiskit.QuantumCircuit onject
+
+    Returns
+    -------
+
+    circ_no_idle : obj
+        Qiskit.QuantumCircuit object, with no idle wires
+
+    """
+
     dag = circuit_to_dag(circ)
 
     idle_wires = list(dag.idle_wires())
@@ -202,7 +192,10 @@ def remove_idle_qwires(circ):
 
     dag.qregs = OrderedDict()
 
-    return dag_to_circuit(dag)
+    circ_no_idle =  dag_to_circuit(dag)
+    return circ_no_idle
+
+
 
 
 
@@ -210,11 +203,35 @@ def remove_idle_qwires(circ):
 
 
 def apply_all_rzz(c_lst, old_dag,q, theta, n):
-    #c_lst = c_map.get_edges()
-    
+
+
+    """
+
+    Helper function to apply Rzz gates between all coupled qubits
+
+
+    Parameters
+    ----------
+    c_lst : list
+        list of qubit couplings of form: [[0,1],[0,2]]
+
+    old_dag : obj
+        Qiskit.Dag object representing a quantum circuit
+    q : obj
+        Qiskit.QuantumRegister object
+
+    theta : obj
+        Qiskit.ParameterVector object
+
+    n : obj
+        numbe rof qubits in circuit
+
+    Returns
+    -------
+
+    """
+
     for count, i in enumerate(c_lst):
-        #print(i[0])
-        #print(i[1])
         if count/2 == count/2:
             if i[0] < n and i[1] < n:
                 pass
@@ -225,6 +242,27 @@ def apply_all_rzz(c_lst, old_dag,q, theta, n):
 
 
 def add_zz_noise_to_circ(circuit, noise_dict):
+
+    """
+
+    Helper function to apply ZZ noise model, both idle and driven according to noise_dict
+
+
+    Parameters
+    ----------
+    circuit : obj
+        Qiskit.QuantumCircuit object
+
+    noise_dict : dict
+        standard noise dictionary
+
+    Returns
+    -------
+
+    circuit : obj
+        Qiskit.QuantumCircuit object with ZZ noise as dictated by noise_dict
+
+    """
 
     if noise_dict["idle_zz"] != 0:
         circuit = apply_zz_idle_to_circuit(circuit,
@@ -239,65 +277,38 @@ def add_zz_noise_to_circ(circuit, noise_dict):
     return circuit
 
 
-def add_noise(circuit, noise_dict, custom_CM = CouplingMap().from_hexagonal_lattice(3,3), full_output = False):
-    
-
-    dr = noise_dict["depolarising_rates"]
-
-    all_zeros = not dr.any()
-    custom_NM, custom_BG  = depolarising_NM(dr[0],dr[1],dr[2],dr[3],dr[4],dr[5])
-    if all_zeros:
-        #to speed up simulator
-        custom_NM = None
-        
-
-
-    
-    if noise_dict["idle_zz"] !=0:
-        
-        circuit = apply_zz_idle_to_circuit(circuit, 
-                                                  custom_CM, 
-                                                  custom_BG, noise_dict["idle_zz"])
-        
-        
-    
-    if noise_dict["driven_zz"] !=0:
-        circuit = apply_zz_driven_to_circuit(circuit, 
-                                                  custom_CM, 
-                                                  custom_BG, noise_dict["driven_zz"])
-
-
-
-
-    
-        
-    #circuit.measure_all()
-        
-    seed = 10598
-    backend = QasmSimulator(method = "density_matrix")
-    
-    #I have added the noise and basis gate params here
-    custom_QI= QuantumInstance(backend, 
-                               seed_simulator=seed, 
-                               seed_transpiler=seed, 
-                               coupling_map = custom_CM,
-                               shots = 4000, 
-                               noise_model = custom_NM, 
-                               basis_gates = custom_BG, 
-                               optimization_level = 0)
-
-    
-
-    
-    if full_output:
-        return circuit, custom_QI, custom_NM, custom_BG, custom_CM
-    else:
-        return circuit
-
-
 
     
 def apply_zz_idle_to_circuit(circuit, c_map, custom_BG, theta):
+
+    """
+
+    Helper function to apply Rzz gates between all coupled qubits every layer of the circuit
+
+
+
+    Parameters
+    ----------
+    circuit: obj
+        Qiskit.QuantumCircuit object
+
+    c_map : obj
+        Qiskit.CouplingMap object
+
+    custom_BG : obj
+        Qiskit.BasisGates object
+
+    theta : obj
+        Qiskit.PatrameterVector object
+
+    Returns
+    -------
+    circ : obj
+        Qiskit.QuantumCircuit object with ZZ noise as dictated by noise_dict
+
+    """
+
+
     n = circuit.num_qubits
     dag = circuit_to_dag(circuit)
     
@@ -339,11 +350,7 @@ def apply_zz_idle_to_circuit(circuit, c_map, custom_BG, theta):
             _dag = apply_all_rzz(c_map_alt, _dag, q, theta, n)
 
     circ = dag_to_circuit(_dag)
-    #circ_d = remove_idle_qwires(circ)
-    #circ_d = circ.decompose(reps = 1)
-    
-    
-    
+
     
     circ_d  = transpile(circ, 
                         coupling_map = c_map,
@@ -353,13 +360,51 @@ def apply_zz_idle_to_circuit(circuit, c_map, custom_BG, theta):
 
 
 
-    return circ
+    return circ_d
 
 
 
 
 
 def depolarising_NM(id_err, x_err, sx_err, cx_err, meas_err, reset_err):
+
+    """
+
+    Helper function to create depolarising noise model
+
+
+    Parameters
+    ----------
+    id_err : float
+        error I on gate
+
+    x_err: float
+        error x on gate
+
+    sx_err: float
+        error sx on gate
+
+    cx_err: float
+        error on cx gate
+
+    meas_err: float
+        error on measuremnt
+
+    reset_err: float
+        error on greset
+
+
+    Returns
+    -------
+
+    custom_NM : obj
+        Qiskit.NoiseModel object
+
+    custom_BG : obj
+        Qiskit.BasisGates object
+
+    """
+
     noise_model = NoiseModel()
 
 
@@ -388,6 +433,37 @@ def depolarising_NM(id_err, x_err, sx_err, cx_err, meas_err, reset_err):
 
 
 def apply_zz_driven_to_circuit(circuit, c_map,custom_BG, theta, only_one = False):
+
+
+    """
+
+    Helper function to apply Rzz gates between all qubits driven by CNOT
+
+
+
+    Parameters
+    ----------
+    circuit: obj
+        Qiskit.QuantumCircuit object
+
+    c_map : obj
+        Qiskit.CouplingMap object
+
+    custom_BG : obj
+        Qiskit.BasisGates object
+
+    theta : obj
+        Qiskit.PatrameterVector object
+
+    Returns
+    -------
+    circ : obj
+        Qiskit.QuantumCircuit object with driven ZZ noise
+
+    """
+
+
+
     n = circuit.num_qubits
     dag = circuit_to_dag(circuit)
     
@@ -448,6 +524,25 @@ def apply_zz_driven_to_circuit(circuit, c_map,custom_BG, theta, only_one = False
     
     
 def replace_CX_with_driven_ZZ(_dag, cme, theta, q, only_one = False):
+
+    """
+
+    Helper function to replace a CNOT dag with a dag consisting of a cnot and any other Rzz gates required for driven ZZ nosie
+
+    Parameters
+    ----------
+    _dag
+    cme
+    theta
+    q
+    only_one
+
+    Returns
+    -------
+
+    """
+
+
     cx_node = _dag.op_nodes(op=CXGate)#.pop()
     #print("start")
     #print(cx_node)
@@ -498,6 +593,31 @@ def replace_CX_with_driven_ZZ(_dag, cme, theta, q, only_one = False):
 
 
 def Ramsey_build(depth, f, initial_state = "0", one_qubit = False):
+
+
+
+    """
+
+    Function to build a circuit for ramsey experiment
+
+    Parameters
+    ----------
+    depth : int
+         number of identity gates in delay
+
+    f : float
+        frequencty bias to add
+
+    initial_state : str
+        "0", "1" or "+", depending on the starting state of spectator qubit
+
+    one_qubit : bool
+        True for no spectator qubit
+
+    Returns
+    -------
+
+    """
 
     #initial state can be +, 0 or 1, expected in string format
     if one_qubit:
@@ -569,60 +689,26 @@ def Ramsey_build(depth, f, initial_state = "0", one_qubit = False):
         return qc
 
 
-def driven_Ramsey_build(depth, f, initial_state="0", one_qubit=False):
-    # initial state can be +, 0 or 1, expected in string format
-
-    if one_qubit:
-        qc = QuantumCircuit(1)
-        qc.rx(np.pi / 2, 0)
-
-
-        qc.barrier()
-        for d in range(depth):
-            qc.i(0)
-
-        qc.rz(depth * 2 * np.pi * f, 0)
-
-        qc.rx(np.pi / 2, 0)
-
-        return qc
-    else:
-        qc = QuantumCircuit(3)
-        qc.rx(np.pi / 2, 1)
-
-
-        if initial_state == "0":
-            pass
-        elif initial_state == "1":
-            qc.x(0)
-            qc.x(2)
-        elif initial_state == "+":
-
-            #qc.x(2)
-            #qc.x(2)
-            qc.h(0)
-            qc.h(2)
-
-        # qc.barrier()
-        for d in range(depth):
-            qc.i(1)
-            #qc.i(1)
-            qc.cnot(0,2)
-
-
-
-
-        qc.rz(depth * 2 * np.pi * f, 1)
-
-        qc.rx(np.pi / 2, 1)
-
-        return qc
 
 
 def complex_coupling_map(connectivity):
-    # ASSUMES 8 QUBITS
-    # Function to boost a ring coupling map to higher connectivities
-    # can take values 2,4,6,7 and returns a graph where ech qubit is connected to 2,4,6 or 7 other qubits
+
+    """
+    ASSUMES 8 QUBITS
+    Function to boost a ring coupling map to higher connectivities
+    can take values 2,4,6,7 and returns a graph where each qubit is connected to 2,4,6 or 7 other qubits
+
+
+    Parameters
+    ----------
+    connectivity : int
+        required connectivity, one of 2,4,6,7
+
+    Returns
+    -------
+
+    """
+
 
     if connectivity == 2:
         con_ind = 0
